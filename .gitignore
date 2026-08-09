@@ -1,0 +1,13 @@
+# macOS 系统文件
+.DS_Store
+
+# Xcode 个人配置和界面状态
+xcuserdata/
+*.xcuserstate
+
+# 编译生成文件
+DerivedData/
+.build/
+
+# 个人学习记录
+LEARNING_PATH.md
