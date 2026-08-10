@@ -1,101 +1,93 @@
 import SwiftUI
 
-
 struct ContentView: View {
-    // 从外部传入的物理刘海尺寸。
     let closedSize: CGSize
-    
-    @State private var isHovering = false
-    @State private var isExpanded = false
-    @State private var pendingExpansion: Task<Void, Never>?
+
+    // 展开交互和媒体数据分别管理，避免一个 ViewModel 承担两种职责。
+    @StateObject private var notchViewModel = NotchViewModel()
+    @StateObject private var mediaViewModel = MediaViewModel()
+
+    private var isExpanded: Bool {
+        notchViewModel.notchState == .expanded
+    }
     
     private let topCornerRadius: CGFloat = 6
+
     private var bottomCornerRadius: CGFloat {
-        isExpanded ? 26 : 14
+        switch notchViewModel.notchState {
+        case .closed:
+            14
+        case .expanded:
+            26
+        }
     }
-    private var currentNotchWidth: CGFloat {
-        isExpanded
-            ? 580
-            : closedSize.width + topCornerRadius * 2
+
+    // 收起时贴合物理刘海，展开时切换到媒体面板尺寸。
+    private var currentNotchSize: CGSize {
+        switch notchViewModel.notchState {
+        case .closed:
+            CGSize(
+                width: closedSize.width + topCornerRadius * 2,
+                height: closedSize.height
+            )
+        case .expanded:
+            CGSize(
+                width: 580,
+                height: 200
+            )
+        }
     }
     
     var body: some View {
         ZStack(alignment: .top) {
-            // 固定大小的浅灰色练习画布。
             Color.clear
 
-            VStack(spacing: 12) {
-                Text("FlowIsland")
-                    .font(.headline)
-
+            VStack(spacing: 0) {
                 if isExpanded {
-                    Text("这里是展开后的内容")
+                    ExpandedContentView(
+                        mediaInfo: mediaViewModel.currentMedia,
+                        onPreviousTrack: {
+                            mediaViewModel.previousTrack()
+                        },
+                        onTogglePlayback: {
+                            mediaViewModel.togglePlayback()
+                        },
+                        onNextTrack: {
+                            mediaViewModel.nextTrack()
+                        },
+                        onSeek: { time in
+                            mediaViewModel.seek(to: time)
+                        }
+                    )
                 }
-
             }
             .foregroundStyle(.white)
             .frame(
-                width: currentNotchWidth,
-                height: isExpanded
-                    ? 200
-                    : closedSize.height
+                width: currentNotchSize.width,
+                height: currentNotchSize.height
             )
             .background(.black)
             .clipShape(
                 NotchShape(
-                        topCornerRadius: topCornerRadius,
-                        bottomCornerRadius: bottomCornerRadius
+                    topCornerRadius: topCornerRadius,
+                    bottomCornerRadius: bottomCornerRadius
                 )
-            )            .shadow(
-                color: isHovering
+            )
+            .shadow(
+                color: notchViewModel.isHovering
                     ? Color.black.opacity(0.55)
                     : Color.clear,
-                radius: isHovering ? 12 : 0
+                radius: notchViewModel.isHovering ? 12 : 0
             )
             .onHover { pointerIsInside in
-                withAnimation(.easeOut(duration: 0.15)) {
-                    isHovering = pointerIsInside
-                }
-                
-                // 每次收到新的 hover 状态，先取消旧任务。
-                pendingExpansion?.cancel()
-                pendingExpansion = nil
-
-                if pointerIsInside {
-                    // 鼠标进入后，创建一个等待展开的任务。
-                    pendingExpansion = Task { @MainActor in
-                        do {
-                            try await Task.sleep(
-                                for: .milliseconds(500)
-                            )
-                        } catch {
-                            // 等待期间任务被取消，不再展开。
-                            return
-                        }
-
-                        withAnimation(
-                            .spring(
-                                response: 0.45,
-                                dampingFraction: 0.72
-                            )
-                        ) {
-                            isExpanded = true
-                        }
-                    }
-                } else {
-                    // 鼠标离开时立即收起。
-                    withAnimation(
-                        .spring(
-                            response: 0.45,
-                            dampingFraction: 0.72
-                        )
-                    ) {
-                        isExpanded = false
-                    }
-                }
+                notchViewModel.handleHover(pointerIsInside)
+            }
+            .onAppear {
+                mediaViewModel.startMonitoring()
             }
             .onDisappear {
-                pendingExpansion?.cancel()
+                notchViewModel.cancelPendingExpansion()
+                mediaViewModel.stopMonitoring()
             }
         }
         .frame(width: 640, height: 240)

@@ -8,10 +8,10 @@
 import AppKit
 
 struct NotchMetrics {
-    // 物理刘海在收起状态下的真实尺寸。
+    // 收起状态严格使用屏幕报告的物理刘海尺寸。
     let closedSize: CGSize
 
-    // init? 表示初始化可能失败。
+    // 无刘海屏幕不会提供左右辅助区域，因此初始化可能失败。
     init?(screen: NSScreen) {
         guard
             let leftArea = screen.auxiliaryTopLeftArea,

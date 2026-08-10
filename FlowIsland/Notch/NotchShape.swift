@@ -11,7 +11,7 @@ struct NotchShape: Shape {
     var topCornerRadius: CGFloat
     var bottomCornerRadius: CGFloat
 
-    // 告诉 SwiftUI 这两个数字可以参与动画。
+    // 同时插值两个圆角，展开和收起时轮廓才能连续过渡。
     var animatableData:
         AnimatablePair<CGFloat, CGFloat> {
         get {
@@ -35,7 +35,7 @@ struct NotchShape: Shape {
         let rightEdge =
             rect.maxX - topCornerRadius
 
-        // 从屏幕顶部左侧开始。
+        // SwiftUI 的局部坐标从左上角开始，因此顶部是 minY。
         path.move(
             to: CGPoint(
                 x: rect.minX,
@@ -43,7 +43,7 @@ struct NotchShape: Shape {
             )
         )
 
-        // 左上角：从屏幕边缘弯入刘海主体。
+        // 左上角从 rect 边缘弯入岛体。
         path.addQuadCurve(
             to: CGPoint(
                 x: leftEdge,
@@ -55,7 +55,7 @@ struct NotchShape: Shape {
             )
         )
 
-        // 左边向下。
+        // 左侧边。
         path.addLine(
             to: CGPoint(
                 x: leftEdge,
@@ -75,7 +75,7 @@ struct NotchShape: Shape {
             )
         )
 
-        // 刘海底边。
+        // 岛体底边。
         path.addLine(
             to: CGPoint(
                 x: rightEdge - bottomCornerRadius,
@@ -95,7 +95,7 @@ struct NotchShape: Shape {
             )
         )
 
-        // 右边向上。
+        // 右侧边。
         path.addLine(
             to: CGPoint(
                 x: rightEdge,
@@ -103,7 +103,7 @@ struct NotchShape: Shape {
             )
         )
 
-        // 右上角：重新连接屏幕边缘。
+        // 右上角重新连接 rect 边缘。
         path.addQuadCurve(
             to: CGPoint(
                 x: rect.maxX,

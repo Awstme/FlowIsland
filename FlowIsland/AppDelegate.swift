@@ -53,17 +53,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         panel.contentView = hostingView
-        // 窗口本身允许透明。
+        // 让 SwiftUI 绘制岛体外形，避免 AppKit 的矩形背景和阴影露出来。
         panel.isOpaque = false
         panel.backgroundColor = .clear
-
-        // 关闭 AppKit 针对整个矩形窗口绘制的系统阴影。
         panel.hasShadow = false
 
-        // 切换到其他应用时仍然显示。
+        // 岛体需要跨应用常驻，并显示在普通应用窗口之上。
         panel.hidesOnDeactivate = false
-
-        // 显示在普通应用窗口之上。
         panel.level = .statusBar
 
         let screenFrame = screen.frame
