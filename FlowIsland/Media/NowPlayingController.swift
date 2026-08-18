@@ -5,6 +5,12 @@
 
 import Combine
 import Foundation
+import OSLog
+
+private let nowPlayingLogger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "FlowIsland",
+    category: "NowPlaying"
+)
 
 // 通过 MediaRemote 读取系统级 Now Playing；只能观察主动上报状态的播放器。
 final class NowPlayingController: MediaControllerProtocol {
@@ -21,6 +27,13 @@ final class NowPlayingController: MediaControllerProtocol {
 
     private typealias SendCommandFunction = @convention(c) (Int, AnyObject?) -> Void
     private typealias SetElapsedTimeFunction = @convention(c) (Double) -> Void
+
+    private enum MediaRemoteCommand: Int {
+        case togglePlayback = 2
+        case nextTrack = 4
+        case previousTrack = 5
+    }
+
     private var mediaRemoteBundle: CFBundle?
     private var sendCommand: SendCommandFunction?
     private var setElapsedTime: SetElapsedTimeFunction?
@@ -58,18 +71,19 @@ final class NowPlayingController: MediaControllerProtocol {
     }
 
     func togglePlayback() {
-        // MediaRemote 命令 2：切换播放/暂停；最终状态以事件流为准。
-        sendCommand?(2, nil)
+        send(.togglePlayback)
     }
 
     func previousTrack() {
-        // MediaRemote 命令 5：上一首。
-        sendCommand?(5, nil)
+        send(.previousTrack)
     }
 
     func nextTrack() {
-        // MediaRemote 命令 4：下一首。
-        sendCommand?(4, nil)
+        send(.nextTrack)
+    }
+
+    private func send(_ command: MediaRemoteCommand) {
+        sendCommand?(command.rawValue, nil)
     }
 
     func seek(to time: TimeInterval) {
@@ -119,7 +133,7 @@ final class NowPlayingController: MediaControllerProtocol {
         )
 
         guard let bundle = CFBundleCreate(kCFAllocatorDefault, frameworkURL) else {
-            print("[NowPlaying] 无法加载系统 MediaRemote.framework")
+            nowPlayingLogger.error("无法加载系统 MediaRemote.framework")
             return
         }
 
@@ -134,7 +148,7 @@ final class NowPlayingController: MediaControllerProtocol {
                 to: SendCommandFunction.self
             )
         } else {
-            print("[NowPlaying] 找不到播放控制函数")
+            nowPlayingLogger.error("找不到播放控制函数")
         }
 
         if let functionPointer = CFBundleGetFunctionPointerForName(
@@ -146,13 +160,13 @@ final class NowPlayingController: MediaControllerProtocol {
                 to: SetElapsedTimeFunction.self
             )
         } else {
-            print("[NowPlaying] 找不到进度跳转函数")
+            nowPlayingLogger.error("找不到进度跳转函数")
         }
     }
 
     private func runAdapterStream() async {
         guard let resources = adapterResources else {
-            print("[NowPlaying] App Bundle 中缺少适配器脚本或框架")
+            nowPlayingLogger.error("App Bundle 中缺少适配器脚本或框架")
             streamTask = nil
             return
         }
@@ -174,7 +188,9 @@ final class NowPlayingController: MediaControllerProtocol {
         do {
             try process.run()
         } catch {
-            print("[NowPlaying] 无法启动媒体监听：\(error)")
+            nowPlayingLogger.error(
+                "无法启动媒体监听：\(error.localizedDescription, privacy: .public)"
+            )
             self.process = nil
             self.pipeHandler = nil
             streamTask = nil
@@ -457,7 +473,9 @@ private actor JSONLinesPipeHandler {
             try pipe.fileHandleForReading.close()
             try pipe.fileHandleForWriting.close()
         } catch {
-            print("[NowPlaying] 关闭媒体管道失败：\(error)")
+            nowPlayingLogger.error(
+                "关闭媒体管道失败：\(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 }

@@ -34,18 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         else {
             return
         }
-        guard let metrics = NotchMetrics(
-            screen: screen
-        ) else {
-            print("当前屏幕没有可用的物理刘海")
+        let metrics: NotchMetrics
+
+        do {
+            metrics = try NotchMetrics(screen: screen)
+        } catch {
+            print("无法检测物理刘海：", error.localizedDescription)
             return
         }
 
-        print(
-            "检测到的物理刘海尺寸：",
-            metrics.closedSize
-        )
-        
         let hostingView = NSHostingView(
             rootView: ContentView(
                 closedSize: metrics.closedSize

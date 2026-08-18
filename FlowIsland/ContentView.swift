@@ -11,7 +11,14 @@ struct ContentView: View {
         notchViewModel.notchState == .expanded
     }
     
-    private let topCornerRadius: CGFloat = 6
+    private var topCornerRadius: CGFloat {
+        switch notchViewModel.notchState {
+        case .closed:
+            6
+        case .expanded:
+            12
+        }
+    }
 
     private var bottomCornerRadius: CGFloat {
         switch notchViewModel.notchState {
