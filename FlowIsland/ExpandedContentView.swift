@@ -6,9 +6,18 @@
 import AppKit
 import SwiftUI
 
+// 每个值只描述一个控制区位置，不直接持有 View 或执行操作。
+enum MediaControlSlot {
+    case previous
+    case playPause
+    case next
+    case empty
+}
+
 // 展开态只负责展示媒体数据，并通过闭包把用户操作交给外部处理。
 struct ExpandedContentView: View {
     let mediaInfo: MediaInfo?
+    let controlSlots: [MediaControlSlot]
 
     let onPreviousTrack: () -> Void
     let onTogglePlayback: () -> Void
@@ -50,25 +59,10 @@ struct ExpandedContentView: View {
                 progressArea
 
                 HStack(spacing: 22) {
-                    controlButton(
-                        systemName: "backward.fill",
-                        diameter: 30,
-                        action: onPreviousTrack
-                    )
-
-                    controlButton(
-                        systemName: mediaInfo?.isPlaying == true
-                            ? "pause.fill"
-                            : "play.fill",
-                        diameter: 40,
-                        action: onTogglePlayback
-                    )
-
-                    controlButton(
-                        systemName: "forward.fill",
-                        diameter: 30,
-                        action: onNextTrack
-                    )
+                    // 位置作为身份，因此配置中允许出现相同类型的多个槽位。
+                    ForEach(controlSlots.indices, id: \.self) { index in
+                        controlView(for: controlSlots[index])
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .disabled(mediaInfo == nil)
@@ -201,20 +195,68 @@ struct ExpandedContentView: View {
         }
     }
 
-    private func controlButton(
-        systemName: String,
+    @ViewBuilder
+    private func controlView(for slot: MediaControlSlot) -> some View {
+        switch slot {
+        case .previous:
+            MediaControlButton(
+                diameter: 30,
+                action: onPreviousTrack
+            ) {
+                Image(systemName: "backward.fill")
+                    .font(.body)
+            }
+        case .playPause:
+            MediaControlButton(
+                diameter: 40,
+                action: onTogglePlayback
+            ) {
+                Image(
+                    systemName: mediaInfo?.isPlaying == true
+                        ? "pause.fill"
+                        : "play.fill"
+                )
+                .font(.title3)
+            }
+        case .next:
+            MediaControlButton(
+                diameter: 30,
+                action: onNextTrack
+            ) {
+                Image(systemName: "forward.fill")
+                    .font(.body)
+            }
+        case .empty:
+            Color.clear
+                .frame(width: 30, height: 30)
+        }
+    }
+}
+
+// Label 是调用方提供的具体 View 类型，按钮只统一点击区域和背景外观。
+private struct MediaControlButton<Label: View>: View {
+    let diameter: CGFloat
+    let action: () -> Void
+    let label: Label
+
+    init(
         diameter: CGFloat,
-        action: @escaping () -> Void
-    ) -> some View {
+        action: @escaping () -> Void,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.diameter = diameter
+        self.action = action
+        self.label = label()
+    }
+
+    var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(diameter > 32 ? .title3 : .body)
+            label
                 .frame(width: diameter, height: diameter)
                 .background(.white.opacity(0.12), in: Circle())
         }
         .buttonStyle(.plain)
     }
-
 }
 
 #Preview {
@@ -227,6 +269,11 @@ struct ExpandedContentView: View {
             elapsedTime: 82,
             playbackRate: 1
         ),
+        controlSlots: [
+            .previous,
+            .playPause,
+            .next,
+        ],
         onPreviousTrack: {},
         onTogglePlayback: {},
         onNextTrack: {},

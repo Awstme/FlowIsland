@@ -3,6 +3,13 @@ import SwiftUI
 struct ContentView: View {
     let closedSize: CGSize
 
+    // 数组顺序就是控制区从左到右的槽位顺序。
+    private let mediaControlSlots: [MediaControlSlot] = [
+        .previous,
+        .playPause,
+        .next,
+    ]
+
     // 展开交互和媒体数据分别管理，避免一个 ViewModel 承担两种职责。
     @StateObject private var notchViewModel = NotchViewModel()
     @StateObject private var mediaViewModel = MediaViewModel()
@@ -53,6 +60,7 @@ struct ContentView: View {
                 if isExpanded {
                     ExpandedContentView(
                         mediaInfo: mediaViewModel.currentMedia,
+                        controlSlots: mediaControlSlots,
                         onPreviousTrack: {
                             mediaViewModel.previousTrack()
                         },
