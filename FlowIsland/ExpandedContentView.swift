@@ -19,6 +19,7 @@ struct ExpandedContentView: View {
     @State private var sliderValue: TimeInterval = 0
     @State private var isDraggingProgress = false
     @State private var lastDragged = Date.distantPast
+    @State private var artworkAccentColor = Color.white
 
     var body: some View {
         HStack(spacing: 20) {
@@ -28,6 +29,7 @@ struct ExpandedContentView: View {
                 if let mediaInfo {
                     Text(mediaInfo.title)
                         .font(.headline)
+                        .foregroundStyle(artworkAccentColor)
                         .lineLimit(1)
 
                     Text(mediaInfo.artist)
@@ -72,8 +74,54 @@ struct ExpandedContentView: View {
                 .disabled(mediaInfo == nil)
                 .opacity(mediaInfo == nil ? 0.4 : 1)
             }
+            // HStack 空间不足时优先保留文字和进度条的可用宽度。
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
         }
         .padding(30)
+        .task(id: mediaInfo?.artworkData) {
+            await updateArtworkAccentColor(
+                from: mediaInfo?.artworkData
+            )
+        }
+    }
+
+    @MainActor
+    private func updateArtworkAccentColor(from artworkData: Data?) async {
+        let extractedColor: ArtworkAccentColor
+
+        if let artworkData {
+            let extractionTask = Task.detached(priority: .userInitiated) {
+                ArtworkColorExtractor.accentColor(from: artworkData)
+            }
+
+            extractedColor = await withTaskCancellationHandler(
+                operation: {
+                    await extractionTask.value
+                },
+                onCancel: {
+                    extractionTask.cancel()
+                }
+            )
+        } else {
+            extractedColor = .white
+        }
+
+        // 切歌或收起面板会取消旧任务，旧封面的结果不能覆盖新状态。
+        guard !Task.isCancelled else {
+            return
+        }
+
+        let newColor = Color(
+            red: extractedColor.red,
+            green: extractedColor.green,
+            blue: extractedColor.blue,
+            opacity: extractedColor.opacity
+        )
+
+        withAnimation(.easeInOut(duration: 0.25)) {
+            artworkAccentColor = newColor
+        }
     }
 
     private var albumArtwork: some View {
@@ -96,6 +144,8 @@ struct ExpandedContentView: View {
                 style: .continuous
             )
         )
+        // 封面尺寸是布局锚点，不参与 HStack 的压缩竞争。
+        .fixedSize()
     }
 
     private var albumArtworkPlaceholder: some View {
@@ -129,6 +179,7 @@ struct ExpandedContentView: View {
                     elapsedTime: mediaInfo.elapsedTime,
                     playbackRate: mediaInfo.playbackRate,
                     isPlaying: mediaInfo.isPlaying,
+                    accentColor: artworkAccentColor,
                     onValueChange: onSeek
                 )
             }
@@ -197,6 +248,7 @@ private struct MediaSliderView: View {
     let elapsedTime: TimeInterval
     let playbackRate: Double
     let isPlaying: Bool
+    let accentColor: Color
     let onValueChange: (TimeInterval) -> Void
 
     var body: some View {
@@ -206,17 +258,19 @@ private struct MediaSliderView: View {
                 duration: duration,
                 lastDragged: $lastDragged,
                 isDragging: $isDragging,
+                accentColor: accentColor,
                 onValueChange: onValueChange
             )
 
             HStack {
                 Text(formattedTime(sliderValue))
+                    .foregroundStyle(accentColor)
                 Spacer()
                 Text(formattedTime(duration))
+                    .foregroundStyle(.white.opacity(0.5))
             }
             .font(.caption2)
             .monospacedDigit()
-            .foregroundStyle(.white.opacity(0.5))
         }
         .onAppear {
             synchronizeSlider(at: currentDate)
@@ -275,6 +329,7 @@ private struct MediaProgressSlider: View {
     let duration: TimeInterval
     @Binding var lastDragged: Date
     @Binding var isDragging: Bool
+    let accentColor: Color
     let onValueChange: (TimeInterval) -> Void
 
     var body: some View {
@@ -291,7 +346,7 @@ private struct MediaProgressSlider: View {
                     .frame(height: trackHeight)
 
                 Rectangle()
-                    .fill(.white)
+                    .fill(accentColor)
                     .frame(
                         width: width * progress,
                         height: trackHeight

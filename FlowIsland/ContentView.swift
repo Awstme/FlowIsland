@@ -66,6 +66,8 @@ struct ContentView: View {
                             mediaViewModel.seek(to: time)
                         }
                     )
+                    // 整体内容在刘海外形变化时统一模糊、淡入或淡出。
+                    .transition(.playerContentBlur)
                 }
             }
             .foregroundStyle(.white)
@@ -98,6 +100,37 @@ struct ContentView: View {
             }
         }
         .frame(width: 640, height: 240)
+    }
+}
+
+// transition 的 active 状态用于插入前和移除后，identity 是正常显示状态。
+private struct PlayerContentTransitionModifier: ViewModifier {
+    let blurRadius: CGFloat
+    let opacity: Double
+    let verticalOffset: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: blurRadius)
+            .opacity(opacity)
+            .offset(y: verticalOffset)
+    }
+}
+
+private extension AnyTransition {
+    static var playerContentBlur: AnyTransition {
+        .modifier(
+            active: PlayerContentTransitionModifier(
+                blurRadius: 30,
+                opacity: 0,
+                verticalOffset: -8
+            ),
+            identity: PlayerContentTransitionModifier(
+                blurRadius: 0,
+                opacity: 1,
+                verticalOffset: 0
+            )
+        )
     }
 }
 
